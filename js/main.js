@@ -109,7 +109,7 @@ function setChart(csvData, colorScale){
     //create a scale to size bars proportionally to frame and for axis
     /*var yScale = d3.scaleLinear()
         .range([460, 0])
-        .domain([0, 30000]);
+        .domain([0, 20000]);
     */
     //set bars for each province
     var bars = chart.selectAll(".bar")
@@ -120,17 +120,49 @@ function setChart(csvData, colorScale){
             return b[expressed]-a[expressed]
         })
         .attr("class", function(d){
-            return "bar " + d.ADM1_EN/*Admin_division*/;
+            console.log('aaaaa',d.Admin_division,d)
+            return "bar " + d.Admin_division/*Admin_division*/;
         })
+        
         .attr("width", chartInnerWidth / csvData.length - 1)
-        .on("mouseover", highlight);
+        .on("mouseover", highlight)
+        .on("mouseout", dehighlight)
+        .on("mousemove", moveLabel)
 
-    
+        //below Example 2.2 line 31...add style descriptor to each rect
+    var desc = bars.append("desc")
+        .text('{"stroke": "none", "stroke-width": "0px"}');
+
+        //annotate bars with attribute value text
+    var numbers = chart.selectAll(".numbers")
+        .data(csvData)
+        .enter()
+        .append("text")
+        .sort(function(a, b){
+            return b[expressed]-a[expressed]
+        })
+        .attr("class", function(d){
+            return "numbers " + d.ADM1_EN;
+        })
+        .attr("text-anchor", "middle")
+        .attr("x", function(d, i){
+            var fraction = chartWidth / csvData.length;
+            return i * fraction + (fraction - 1) / 2;
+        })
+
+        .attr("y", function(d){
+            return yScale(parseFloat(d[expressed])) + topBottomPadding;
+        })
+        .text(function(d){
+            return d[expressed];
+        });
+
+    /*
     var chartTitle = chart.append("text")
         .attr("x", 40)
         .attr("y", 40)
         .attr("class", "chartTitle")
-        .text("GDP of year 2010 in each province");
+        .text("GDP of year 2010 in each province");*/
 
     //create vertical axis generator
     var yAxis = d3.axisLeft()
@@ -209,13 +241,9 @@ function setGraticule(map,path) {
 
 function joinData(china_provinces,csvData) {
     //loop through csv to assign each set of csv attribute values to geojson region
-    console.log(china_provinces)
-    console.log(csvData)
-    console.log(typeof(china_provinces) + typeof(csvData))
     newProvArr = []
     for (var i = 0; i < csvData.length; i++){
         var csvRegion = csvData[i]; //the current region
-        console.log("CSV",csvRegion)
         var csvKey = csvRegion.Admin_division; //the CSV primary key
         var cKey_abbrev = csvKey.split(' ')[0]
     
@@ -229,12 +257,10 @@ function joinData(china_provinces,csvData) {
     
             //where primary keys match, transfer csv data to geojson properties object
             if (cKey_abbrev == gKey_abbrev){
-                console.log(cKey_abbrev + gKey_abbrev)
                 newProvArr.push(geojsonProps)
 
                 //assign all attributes and values
                 attrArray.forEach(function(attr){
-                    console.log('CSVREGION',csvRegion)
                     var val = parseFloat(csvRegion[attr]); //get csv attribute value
                     geojsonProps[attr] = val; //assign attribute and value to geojson properties
                 });
@@ -247,32 +273,103 @@ function joinData(china_provinces,csvData) {
 //function to highlight enumeration units and bars
 function highlight(props){
     //change stroke
-    var selected = d3.selectAll("." + props.AMD1_EN)
+    console.log('kkkkk',props)
+    var selected = d3.selectAll("." + props.ADM1_EN)
         .style("stroke", "#ffffff")
         .style("stroke-width", "2");
 };
 
+//function to reset the element style on mouseout
+function dehighlight(props){
+    var selected = d3.selectAll("." + props.adm1_code)
+        .style("stroke", function(){
+            return getStyle(this, "stroke")
+        })
+        .style("stroke-width", function(){
+            return getStyle(this, "stroke-width")
+        });
+
+    function getStyle(element, styleName){
+        var styleText = d3.select(element)
+            .select("desc")
+            .text();
+
+        var styleObject = JSON.parse(styleText);
+
+        return styleObject[styleName];
+    };
+        //below Example 2.4 line 21...remove info label
+    d3.select(".infolabel")
+        .remove();
+};
+
+//function to create dynamic label
+function setLabel(props){
+    //label content
+    var labelAttribute = "<h1>" + props[expressed] +
+        "</h1><b>" + expressed + "</b>";
+
+    //create info label div
+    var infolabel = d3.select("body")
+        .append("div")
+        .attr("class", "infolabel")
+        .attr("id", props.adm1_code + "_label")
+        .html(labelAttribute);
+
+    var regionName = infolabel.append("div")
+        .attr("class", "labelname")
+        .html(props.name);
+};
+
+//function to move info label with mouse
+function moveLabel(){
+    //use coordinates of mousemove event to set label coordinates
+    //get width of label
+    var labelWidth = d3.select(".infolabel")
+        .node()
+        .getBoundingClientRect()
+        .width;
+
+    //use coordinates of mousemove event to set label coordinates
+    var x1 = d3.event.clientX + 10,
+        y1 = d3.event.clientY - 75,
+        x2 = d3.event.clientX - labelWidth - 10,
+        y2 = d3.event.clientY + 25;
+
+    //horizontal label coordinate, testing for overflow
+    var x = d3.event.clientX > window.innerWidth - labelWidth - 20 ? x2 : x1; 
+    //vertical label coordinate, testing for overflow
+    var y = d3.event.clientY < 75 ? y2 : y1; 
+    d3.select(".infolabel")
+        .style("left", x + "px")
+        .style("top", y + "px");
+};
+
 function setEnumerationUnits(china_provinces,map,path,colorScale) {
     //add France regions to map
-    console.log('COLOR',colorScale)
 
     var provinces = map.selectAll(".provinces")
         .data(china_provinces)
         .enter()
         .append("path")
         .attr("class", function(d) {
-            console.log('PROV',d.properties)
             return "provinces " + d.properties.ADM1_EN;
         })
         // data will be projected accodingto variable path
         .attr("d", path)
-
         .style('fill', function(d) {
             return choropleth(d.properties,colorScale)
         })
         .on("mouseover", function(d){
-            highlight(d.properties);
+            console.log('llllll',d.properties)
+            highlight(d.properties)
+        .on("mouseout", function(d){
+            dehighlight(d.properties);
+        })
+        .on("mousemove", moveLabel);
         });
+    var desc = provinces.append("desc")
+        .text('{"stroke": "#000", "stroke-width": "0.5px"}');
     }
 
 function choropleth(props, colorScale){
@@ -313,6 +410,7 @@ function changeAttribute(attribute, csvData) {
     // change expressed visual variables on map polygons
     expressed = attribute;
     var colorScale = makeColorScale(csvData)
+    
     var provinces = d3.selectAll('.provinces')
         .transition()
         .duration(1000)
@@ -333,23 +431,6 @@ function changeAttribute(attribute, csvData) {
         .duration(500);
 
     updateChart(bars, csvData.length, colorScale);
-
-    /*    
-    .attr("x", function(d, i){
-        return i * (chartInnerWidth / csvData.length) + leftPadding;
-        })
-    //resize bars
-    .attr("height", function(d, i){
-        return 463 - yScale(parseFloat(d[expressed]));
-        })
-    .attr("y", function(d, i){
-        return yScale(parseFloat(d[expressed])) + topBottomPadding;
-        })
-    //recolor bars
-    .style("fill", function(d){
-        return choropleth(d, colorScale);
-        });
-    */
     }
 
 function updateChart(bars, n, colorScale){
@@ -360,6 +441,7 @@ function updateChart(bars, n, colorScale){
     //size/resize bars
         .attr("height", function(d, i){
             return 463 - yScale(parseFloat(d[expressed]));
+            
         })
         .attr("y", function(d, i){
             return yScale(parseFloat(d[expressed])) + topBottomPadding;
@@ -372,5 +454,28 @@ function updateChart(bars, n, colorScale){
     var chartTitle = d3.select(".chartTitle")
         .text("Number of Variable " + expressed[3] + " in each region");
     };
+
+            //annotate bars with attribute value text
+    var numbers = chart.selectAll(".numbers")
+        .data(csvData)
+        .enter()
+        .append("text")
+        .sort(function(a, b){
+            return b[expressed]-a[expressed]
+        })
+        .attr("class", function(d){
+            return "numbers " + d.ADM1_EN;
+        })
+        .attr("text-anchor", "middle")
+        .attr("x", function(d, i){
+            var fraction = chartWidth / csvData.length;
+            return i * fraction + (fraction - 1) / 2;
+        })
+        .attr("y", function(d){
+            return yScale(parseFloat(d[expressed])) + topBottomPadding;
+        })
+        .text(function(d){
+            return d[expressed];
+        });
 
 })()
