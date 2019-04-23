@@ -47,7 +47,7 @@ function setMap() {
     var promises = [];
     promises.push(d3.csv("data/China_province_data.csv")); //load attributes from csv
     promises.push(d3.json("data/Asia_countries.topojson")); //load background spatial data
-    promises.push(d3.json("data/China_provinces.topojson")); //load choropleth spatial data
+    promises.push(d3.json("data/China_provinces_orig.topojson")); //load choropleth spatial data
     Promise.all(promises).then(callback);
 
     function callback(data) {
@@ -71,13 +71,14 @@ function setMap() {
         china_provinces = joinData(china_provinces,csvData)
 
         var colorScale = makeColorScale(csvData)
-
         createDropdown()
-        setEnumerationUnits(china_provinces,map,path,colorScale)
 
         setChart(csvData, colorScale)
 
-       //changeAttribute(attribute, csvData)
+        setEnumerationUnits(china_provinces,map,path,colorScale)
+
+
+        //changeAttribute(attribute, csvData)
         }
     }
 
@@ -119,15 +120,30 @@ function setChart(csvData, colorScale){
         .sort(function(a, b){
             return b[expressed]-a[expressed]
         })
-        .attr("class", function(d){
-            console.log('aaaaa',d.Admin_division,d)
+        .attr("class", function(d) {
+            console.log('CLASSSSSS',"bar " + d.Admin_division)
             return "bar " + d.Admin_division/*Admin_division*/;
         })
-        
         .attr("width", chartInnerWidth / csvData.length - 1)
-        .on("mouseover", highlight)
-        .on("mouseout", dehighlight)
-        .on("mousemove", moveLabel)
+        .on("mouseover", function(d) {
+            highlight(d.Admin_division)
+        })
+        .on("mouseout", function(d) {
+            dehighlight(d.Admin_division)
+        })
+
+        /*.attr("x", function(d, i){
+            console.log("BAR-BAR",i * (chartWidth / csvData.length))
+            return i * (chartWidth / csvData.length);
+        })/*
+        .attr("height", function(d){
+            return yScale(parseFloat(d[expressed]));
+        })
+        .attr("y", function(d){
+            console.log('Y-BAR', chartHeight - yScale(parseFloat(d[expressed])))
+            return /*yScale(parseFloat(d[expressed])) + topBottomPadding chartHeight - yScale(parseFloat(d[expressed]));
+        })*/
+
 
         //below Example 2.2 line 31...add style descriptor to each rect
     var desc = bars.append("desc")
@@ -138,31 +154,32 @@ function setChart(csvData, colorScale){
         .data(csvData)
         .enter()
         .append("text")
-        .sort(function(a, b){
-            return b[expressed]-a[expressed]
-        })
         .attr("class", function(d){
-            return "numbers " + d.ADM1_EN;
+            console.log("NUMBERRRRRRRRRRR",d)
+            return "numbers " + d.Admin_division;
         })
         .attr("text-anchor", "middle")
-        .attr("x", function(d, i){
-            var fraction = chartWidth / csvData.length;
-            return i * fraction + (fraction - 1) / 2;
-        })
-
+        /*.attr("x", function(d, i){
+            console.log("MARKER-MARKER",i * (chartWidth / csvData.length))
+            return i * (chartWidth / csvData.length);
+        })*/
+        .sort(function(a, b){
+            return b[expressed]-a[expressed]
+        })/*
         .attr("y", function(d){
-            return yScale(parseFloat(d[expressed])) + topBottomPadding;
+            console.log('Y-NUMBER', d[expressed],chartHeight - yScale(parseFloat(d[expressed])))
+            return /*yScale(parseFloat(d[expressed])) + topBottomPadding chartHeight - yScale(parseFloat(d[expressed]))//yScale(parseFloat(d[expressed])) + topBottomPadding;
         })
         .text(function(d){
             return d[expressed];
-        });
+        });*/
 
-    /*
+    
     var chartTitle = chart.append("text")
-        .attr("x", 40)
+        .attr("x", 140)
         .attr("y", 40)
         .attr("class", "chartTitle")
-        .text("GDP of year 2010 in each province");*/
+        .text("GDP of year 2010 in each province");
 
     //create vertical axis generator
     var yAxis = d3.axisLeft()
@@ -181,7 +198,7 @@ function setChart(csvData, colorScale){
         .attr("height", chartInnerHeight)
         .attr("transform", translate);
 
-    updateChart(bars, csvData.length, colorScale)
+    updateChart(numbers, bars, csvData.length, colorScale)
         
         /*.attr("x", function(d, i){
             return i * (chartInnerWidth / csvData.length) + leftPadding;
@@ -197,8 +214,48 @@ function setChart(csvData, colorScale){
         });*/
 
     //create a text element for the chart title
-
 };
+
+function updateChart(numbers, bars, n, colorScale){
+    console.log('updatttttttttt',n,expressed, bars)
+    //position bars
+    bars.attr("x", function(d, i){
+        return i * (chartInnerWidth / n) + leftPadding;
+        })
+    //size/resize bars
+
+        .attr("height", function(d, i){
+            return 463 - yScale(parseFloat(d[expressed]));
+            
+        })
+        .attr("y", function(d, i){
+            console.log('YYYYYYYYYYYY-BARS',yScale(parseFloat(d[expressed])) + topBottomPadding - 5)
+            return yScale(parseFloat(d[expressed])) + topBottomPadding;//chartHeight - yScale(parseFloat(d[expressed]))
+        })
+        //color/recolor bars
+        .style("fill", function(d){
+             return choropleth(d, colorScale);
+        })
+
+        /*.on("mouseout", dehighlight)
+        .on("mousemove", moveLabel)
+            *///at the bottom of updateChart()...add text to chart title
+
+    var chartTitle = d3.select(".chartTitle")
+        .text(expressed + " in each region");
+
+            //annotate bars with attribute value text
+    numbers.attr("x", function(d, i){
+        return i * (chartInnerWidth / n) + leftPadding + 8;
+        })
+        .attr("y", function(d, i){
+            console.log('YYYYYYYYYYYY-NUMBER',yScale(parseFloat(d[expressed])) + topBottomPadding - 5)
+            return yScale(parseFloat(d[expressed])) + topBottomPadding - 5;
+        })
+        .text(function(d){
+            return d[expressed];
+        });
+    }
 
 function makeColorScale(data){
         var colorClasses = [
@@ -268,20 +325,24 @@ function joinData(china_provinces,csvData) {
         }
     }
     return china_provinces
+
 }
 
 //function to highlight enumeration units and bars
 function highlight(props){
     //change stroke
-    console.log('kkkkk',props)
-    var selected = d3.selectAll("." + props.ADM1_EN)
-        .style("stroke", "#ffffff")
+    var selName = '.bar ' + props
+    console.log(selName)
+    var selected = d3.selectAll('.' + props)
+        .style("stroke", "#7799ff")
         .style("stroke-width", "2");
+    setLabel(props)
 };
 
 //function to reset the element style on mouseout
 function dehighlight(props){
-    var selected = d3.selectAll("." + props.adm1_code)
+    console.log("DEH",props)
+    var selected = d3.selectAll("." + props)
         .style("stroke", function(){
             return getStyle(this, "stroke")
         })
@@ -306,19 +367,21 @@ function dehighlight(props){
 //function to create dynamic label
 function setLabel(props){
     //label content
-    var labelAttribute = "<h1>" + props[expressed] +
+    console.log('SetLabel')
+    console.log(props, 'and', expressed)
+    var labelAttribute = "<h1>" + props +
         "</h1><b>" + expressed + "</b>";
 
     //create info label div
     var infolabel = d3.select("body")
         .append("div")
         .attr("class", "infolabel")
-        .attr("id", props.adm1_code + "_label")
+        .attr("id", props + "_label")
         .html(labelAttribute);
 
     var regionName = infolabel.append("div")
         .attr("class", "labelname")
-        .html(props.name);
+        .html(props);
 };
 
 //function to move info label with mouse
@@ -361,15 +424,14 @@ function setEnumerationUnits(china_provinces,map,path,colorScale) {
             return choropleth(d.properties,colorScale)
         })
         .on("mouseover", function(d){
-            console.log('llllll',d.properties)
-            highlight(d.properties)
-        .on("mouseout", function(d){
-            dehighlight(d.properties);
+            highlight(d.properties.ADM1_EN)
         })
-        .on("mousemove", moveLabel);
-        });
+        .on("mouseout", function(d){
+            dehighlight(d.properties.ADM1_EN);
+        })
+        //.on("mousemove", moveLabel());
     var desc = provinces.append("desc")
-        .text('{"stroke": "#000", "stroke-width": "0.5px"}');
+        .text('{"stroke": "#000", "stroke-width": "0px"}');
     }
 
 function choropleth(props, colorScale){
@@ -409,6 +471,7 @@ function createDropdown(){
 function changeAttribute(attribute, csvData) {
     // change expressed visual variables on map polygons
     expressed = attribute;
+    console.log('attrrrrrrrrr', attribute)
     var colorScale = makeColorScale(csvData)
     
     var provinces = d3.selectAll('.provinces')
@@ -429,53 +492,18 @@ function changeAttribute(attribute, csvData) {
             return i * 20
         })
         .duration(500);
-
-    updateChart(bars, csvData.length, colorScale);
-    }
-
-function updateChart(bars, n, colorScale){
-    //position bars
-    bars.attr("x", function(d, i){
-        return i * (chartInnerWidth / n) + leftPadding;
-        })
-    //size/resize bars
-        .attr("height", function(d, i){
-            return 463 - yScale(parseFloat(d[expressed]));
-            
-        })
-        .attr("y", function(d, i){
-            return yScale(parseFloat(d[expressed])) + topBottomPadding;
-        })
-        //color/recolor bars
-        .style("fill", function(d){
-             return choropleth(d, colorScale);
-        });
-            //at the bottom of updateChart()...add text to chart title
-    var chartTitle = d3.select(".chartTitle")
-        .text("Number of Variable " + expressed[3] + " in each region");
-    };
-
-            //annotate bars with attribute value text
-    var numbers = chart.selectAll(".numbers")
-        .data(csvData)
-        .enter()
-        .append("text")
+    
+    var numbers = d3.selectAll(".numbers")
+        //re-sort bars
         .sort(function(a, b){
-            return b[expressed]-a[expressed]
+            return b[expressed] - a[expressed];
         })
-        .attr("class", function(d){
-            return "numbers " + d.ADM1_EN;
+        .transition() //add animation
+        .delay(function(d, i){
+            return i * 20
         })
-        .attr("text-anchor", "middle")
-        .attr("x", function(d, i){
-            var fraction = chartWidth / csvData.length;
-            return i * fraction + (fraction - 1) / 2;
-        })
-        .attr("y", function(d){
-            return yScale(parseFloat(d[expressed])) + topBottomPadding;
-        })
-        .text(function(d){
-            return d[expressed];
-        });
+        .duration(500);
 
+    updateChart(numbers, bars, csvData.length, colorScale);
+    }
 })()

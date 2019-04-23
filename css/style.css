@@ -35,16 +35,18 @@ body {
 }
 
 .numbers {
-    fill: white;
+    fill: rgb(85, 30, 30);
 	font-family: sans-serif;
 	font-size: 8px;
 }
 
-.chartTitle {
+/*.chartTitle {
     font-family: sans-serif;
-    font-size: 1.5em;
-    font-weight: bold;
-}
+    font-size: 1.6em;
+    /*font-weight: bold;
+    text-align: center;
+    display: inline-block;
+}*/
 
 #panel {
 	width: 27%;
@@ -96,7 +98,7 @@ body {
 
 .chart {
     float: right;
-    margin: 7px 20px 0 0;
+    margin: 10px 20px 0 0;
 }
 
 .chartTitle {
